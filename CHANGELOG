@@ -1,0 +1,42 @@
+
+BruteForceBlocker v1.2.3 - Mar 6 2006
+  - fixed regexp to match fqdn
+  - remove configuration directive of location of pf.conf, instead add
+    new IPs from project site via pfctl command
+
+BruteForceBlocker v1.2.2 - Mar 4 2006
+  - script now resolves reverse DNS records so it can handle IP logged
+    as hostname, when used UseDNS yes in sshd_config
+  - it is possible to configure location of pf.conf file
+
+BruteForceBlocker v1.2.1 - Jan 1 2006
+  - fixed bug in download URL of remote IPs from project website
+    Spotted by: myself after hard new year's eve party :)
+  - increased mincount default conf value to 2
+  - Happy new year 2006!
+
+BruteForceBlocker v1.2 - Nov 12 2005
+  - code cleanup
+  - configuration was moved to separate file
+  - script uses Sys::Syslog perl module to log it's output
+  - script catches ipv6 addresses
+  - script is able to send mail when blocking new IP
+  - script is able to report blocked IP to the project site so IP can be
+    easily shared with other people (done via LWP::UserAgent module)
+  - script is able to download the blacklist from project site and
+    use it. It is possible to download only those IP which were active
+    in last x days and/or were reported from x source machines
+  - we have recorded time of IP addition in the table file
+  - new regexps
+
+BruteForceBlocker v1.1 - Sep 04 2005
+  - script is now aware of File::Tail module and uses syslog pipes to
+    collect data. This makes BruteForceBlocker much faster
+  - script does not run in background and does not need rc script
+  - added some new regexps to catch more data
+
+BruteForceBlocker v1.0 - Apr 12 2005
+  - First public release
+  - script uses File::Tail perl module to collect data
+  - script runs daemonized in background and is started from rc script
+

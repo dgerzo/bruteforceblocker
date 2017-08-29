@@ -1,0 +1,10 @@
+
+Thanks to:
+
+- Jonas Davidsson and Matt Pearce for good ideas
+- J.R. Oldroyd for great ideas, he is also one of the reasons why
+  BruteForceBlocker v1.2 was released
+- Branislav Gerzo for some perl coding hints and help with code cleanup
+- Kan Sasaki who sent me a patch for BruteForceBlocker which allows to
+  resolve reverze DNS to an IP address
+

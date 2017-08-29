@@ -1,0 +1,52 @@
+
+INSTALLATION
+
+ o) You will need to add a new table to the pf config file. You can do so
+    by adding lines to the pf.conf similar to these:
+
+ table <bruteforce> persist file "/var/db/ssh-bruteforce"
+ block in log quick proto tcp from <bruteforce> to any port ssh
+
+ o) You will also need to add new line into your /etc/syslog.conf so it
+    will look like this:
+
+ auth.info;authpriv.info		| exec /usr/local/sbin/bruteforceblocker
+
+    - note that you should keep the original line, otherwise you will lose
+      your sshd's logs - e.g. they will not be logged.
+
+ o) You should also consider starting syslogd with -c option.
+
+ More information can be found at BruteForceBlocker Project site located
+ at http://danger.rulez.sk/projects/bruteforceblocker.
+
+CONFIGURATION
+
+ All configuration is now done in separate file, usually located at
+ /usr/local/etc/bruteforceblocker.conf. If not, you have to edit main
+ script and put there full path to the configuration file.
+
+ Most of values in this config should be sufficient for your
+ requirements, but there's no problem to tweak them.
+
+ o) email - email address where will be send mails when a new IP will be
+            blocked. To disable emailing, set to undef, or ''
+ o) table - name of the pf table in pf.conf
+ o) tablefile - location of table on filesystem, specified in pf.conf
+ o) max_attempts - maximum number of failed tries before blocking IP
+ o) timeout - number of seconds of inactivity needed before resetting IP
+              counter
+ o) report - if the reporting should be enabled or not. Reporting is
+             good to share your catched attackers with other people
+ o) debug - enable/disable debugging
+ o) use_remote - set to 1 if you want BruteForceBlocker to download
+                 blacklist of IPs catched by other users and load them
+                 to pf table
+ o) mindays - use only those IPs from blacklist which were reported in
+              last x days
+ o) mincount - use only those IPs which were reported from at least x
+               different source machines
+ o) mail - location of mail binary used to send mails
+ o) pfctl - location of pfctl binary
+ o) whitelist - list of IPs that will never get blocked
+
