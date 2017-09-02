@@ -7,4 +7,4 @@ Thanks to:
 - Branislav Gerzo for some perl coding hints and help with code cleanup
 - Kan Sasaki who sent me a patch for BruteForceBlocker which allows to
   resolve reverze DNS to an IP address
-
+- Max Khon for regexp to match recent OpenSSH failure log entries

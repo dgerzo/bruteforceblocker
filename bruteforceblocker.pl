@@ -1,7 +1,6 @@
 #!/usr/bin/perl
 
-# BruteForceBlocker v1.2.3
-# - Daniel Gerzo <danger@rulez.sk>
+# BruteForceBlocker by Daniel Gerzo <danger@rulez.sk>
 
 use strict;
 use warnings;
@@ -18,6 +17,7 @@ our $cfg;
 require '/usr/local/etc/bruteforceblocker.conf';
 
 my $work = {
+	version		=> '1.2.4',
 	ipv4		=> '(?:\d{1,3}\.){3}\d{1,3}',	# regexp to match ipv4 address
 	ipv6		=> '[\da-fA-F:]+',		# regexp to match ipv6 address
 	fqdn		=> '[\da-z\-.]+\.[a-z]{2,4}',	# regexp to match fqdn
@@ -106,7 +106,7 @@ sub download {
     my $url = shift or die "Need url!\n";
     # create useragent
     my $ua = LWP::UserAgent->new(
-	agent 	=> 'BruteForceBlocker v1.2.3',
+	agent 	=> "BruteForceBlocker v$work->{version}",
 	timeout => 10
     );
     # send request

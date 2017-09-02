@@ -1,3 +1,6 @@
+BruteForceBlocker v1.2.4 - Sep 2 2017
+  - add a new regexp to match failure log entries of recent OpenSSH versions
+  - contributed by Max Khon
 
 BruteForceBlocker v1.2.3 - Mar 6 2006
   - fixed regexp to match fqdn
