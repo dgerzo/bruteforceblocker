@@ -5,6 +5,7 @@
 use strict;
 use warnings;
 
+use Socket;
 use Sys::Syslog;
 use Sys::Hostname;
 use LWP::UserAgent;
@@ -78,11 +79,13 @@ my $res   = Net::DNS::Resolver->new;
 
 while (<>) {
     if (/.*Failed password.*from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn}) port.*/i ||
+	/.*Failed keyboard.*from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn}) port.*/i ||
 	/.*Invalid user.*from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn})$/i ||
 	/.*Did not receive identification string from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn})$/i ||
 	/.*Bad protocol version identification .* from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn})$/i ||
 	/.*User.*from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn}) not allowed because.*/i ||
 	/.*error: maximum authentication attempts exceeded for.*from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn}).*/i ||
+	/.*error: PAM: authentication error for.*from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn}).*/i ||
 	/.*fatal: Unable to negotiate with ($work->{ipv4}|$work->{ipv6}|$work->{fqdn}).*/i) {
 
 	my $IP = $1;
@@ -122,52 +125,63 @@ sub download {
 }
 
 sub block {
-    my ($IP) = shift or die "Need IP!\n";
+	my ($IP) = shift or die "Need IP!\n";
 
-    if ($timea{$IP} && ($timea{$IP} < time - $cfg->{timeout})) {
-	syslog('notice', "resetting $IP count, since it wasn't active for more than $cfg->{timeout} seconds") if $cfg->{debug};
-	delete $count{$IP};
-    }
-    $timea{$IP} = time;
-
-    # increase the total number of failed attempts
-    $count{$IP}++;
-
-    if ($cfg->{debug} && ($count{$IP} < $cfg->{max_attempts}+1)) {
-	syslog('notice', "$IP was logged with total count of $count{$IP} failed attempts");
-    }
-
-    if ($count{$IP} == $cfg->{max_attempts}+1) {
-	syslog('notice', "IP $IP reached maximum number of failed attempts!") if $cfg->{debug};
-	if (!grep { /$IP/ } @{$cfg->{whitelist}}) {
-	    $work->{pool}  = $IP . '/32'  if ($IP =~ /\./); # block whole ipv4 pool
-	    $work->{pool}  = $IP . '/128' if ($IP =~ /\:/); # block while ipv6 pool
-	    $work->{timea} = scalar(localtime);
-
-	    syslog('notice', "blocking $work->{pool} in pf table $cfg->{table}.");
-	    system("$cfg->{pfctl} -t $cfg->{table} -T add $work->{pool}") == 0 ||
-		syslog('notice', "Couldn't add $cfg->{pool} to firewall");
-	    system("$cfg->{pfctl} -k $IP") == 0 ||
-		syslog('notice', "Couldn't kill all states for $IP");
-	    system("echo '$work->{pool}\t\t# $work->{timea}' >> $cfg->{tablefile}") == 0 ||
-		syslog('notice', "Could't write $work->{pool} to $cfg->{table}'s table file");
-
-	    # send mail if it is configured
-	    if ($cfg->{email} && $cfg->{email} ne '') {
-		syslog('notice', "sending email to $cfg->{email}") if $cfg->{debug};
-		open(MAIL, "| $cfg->{mail} -s '$work->{hostname}: BruteForceBlocker blocking $work->{pool}' $cfg->{email}");
-		print (MAIL "BruteForceBlocker blocking $work->{pool} in pf table $cfg->{table}\n");
-		close(MAIL);
-	    }
-	    ;
-
-	    # report blocked IP if it is enabled
-	    if ($cfg->{report}) {
-		syslog('notice', "Reporting $IP to BruteForceBlocker project site") if $cfg->{debug};
-		download("$work->{projectsite}/report.php?ip=$IP");
-	    }
-	} else {
-	    syslog('notice', "...but $IP is whitelisted, so we will not block it!") if $cfg->{debug};
+	if ($timea{$IP} && ($timea{$IP} < time - $cfg->{timeout})) {
+		syslog('notice', "resetting $IP count, since it wasn't active for more than $cfg->{timeout} seconds") if $cfg->{debug};
+		delete $count{$IP};
 	}
-    }
+	$timea{$IP} = time;
+
+	# increase the total number of failed attempts
+	$count{$IP}++;
+
+	if ($cfg->{debug} && ($count{$IP} < $cfg->{max_attempts}+1)) {
+		syslog('notice', "$IP was logged with total count of $count{$IP} failed attempts");
+	}
+
+	if ($count{$IP} == $cfg->{max_attempts}+1) {
+		syslog('notice', "IP $IP reached maximum number of failed attempts!") if $cfg->{debug};
+		if (!grep { /$IP/ } @{$cfg->{whitelist}}) {
+			$work->{pool}  = $IP . '/32'  if ($IP =~ /\./); # block whole ipv4 pool
+			$work->{pool}  = $IP . '/128' if ($IP =~ /\:/); # block while ipv6 pool
+			$work->{timea} = scalar(localtime);
+
+			syslog('notice', "blocking $work->{pool} in pf table $cfg->{table}.");
+			system("$cfg->{pfctl} -t $cfg->{table} -T add $work->{pool}") == 0 ||
+			syslog('notice', "Couldn't add $cfg->{pool} to firewall");
+			system("$cfg->{pfctl} -k $IP") == 0 ||
+			syslog('notice', "Couldn't kill all states for $IP");
+			system("echo '$work->{pool}\t\t# $work->{timea}' >> $cfg->{tablefile}") == 0 ||
+			syslog('notice', "Could't write $work->{pool} to $cfg->{table}'s table file");
+
+			# send mail if it is configured
+			if ($cfg->{email} && $cfg->{email} ne '') {
+				syslog('notice', "sending email to $cfg->{email}") if $cfg->{debug};
+				open(MAIL, "| $cfg->{mail} -s '$work->{hostname}: BruteForceBlocker blocking $work->{pool}' $cfg->{email}");
+				if ($cfg->{dns_lookup} && $cfg->{dns_lookup} ne ''){
+					my @addressToLookup = split /\//, $work->{pool};
+					my $addressToLookup = $addressToLookup[0];
+					my $hostnameLookedUp = gethostbyaddr(inet_aton($addressToLookup), AF_INET);
+					if ($cfg->{debug}){
+						syslog('notice', "DNS lookup address:  $addressToLookup");
+						syslog('notice', "DNS Looked up hostname: $hostnameLookedUp");
+					}
+					print (MAIL "BruteForceBlocker blocking $work->{pool} in pf table $cfg->{table}\nLooked up hostname: $hostnameLookedUp \n");
+				} else {
+					print (MAIL "BruteForceBlocker blocking $work->{pool} in pf table $cfg->{table}\n");
+				}
+				close(MAIL);
+			}
+			;
+
+			# report blocked IP if it is enabled
+			if ($cfg->{report}) {
+				syslog('notice', "Reporting $IP to BruteForceBlocker project site") if $cfg->{debug};
+				download("$work->{projectsite}/report.php?ip=$IP");
+			}
+		} else {
+			syslog('notice', "...but $IP is whitelisted, so we will not block it!") if $cfg->{debug};
+		}
+	}
 }
