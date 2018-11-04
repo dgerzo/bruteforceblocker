@@ -1,3 +1,11 @@
+BruteForceBlocker v1.2.6 - Nov 3 2018
+  - add new regexps to match more failure log entries of recent OpenSSH versions
+  - resolve reverse DNS of blocked IPs
+
+BruteForceBlocker v1.2.5 - Feb 11 2018
+  - add a new regexp to match another failure log entry
+  - contributed by Yasuhiro KIMURA
+
 BruteForceBlocker v1.2.4 - Sep 2 2017
   - add a new regexp to match failure log entries of recent OpenSSH versions
   - contributed by Max Khon

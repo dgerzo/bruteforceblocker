@@ -1,4 +1,4 @@
-BruteForceBlocker v1.2.4
+BruteForceBlocker v1.2.6
 
 BruteForceBlocker is a perl script, that works along with pf - OpenBSD's
 firewall (which is also available on FreeBSD and NetBSD) and its main
