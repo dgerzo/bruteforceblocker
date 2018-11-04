@@ -17,7 +17,7 @@ our $cfg;
 require '/usr/local/etc/bruteforceblocker.conf';
 
 my $work = {
-	version		=> '1.2.4',
+	version		=> '1.2.6',
 	ipv4		=> '(?:\d{1,3}\.){3}\d{1,3}',	# regexp to match ipv4 address
 	ipv6		=> '[\da-fA-F:]+',		# regexp to match ipv6 address
 	fqdn		=> '[\da-z\-.]+\.[a-z]{2,4}',	# regexp to match fqdn
@@ -35,7 +35,7 @@ if ($cfg->{use_remote}) {
     }
     close(TABLE) or syslog("notice", "Couldn't close $cfg->{tablefile}");
 
-    syslog('notice', 'downloading blacklist from project site') if $cfg->{debug};
+    syslog('notice', 'downloading blacklist from the project site') if $cfg->{debug};
 
     # download the list from project site and load IPs to @remoteIPs array
     if ( my $content = download("$work->{projectsite}/blist.php?mindays=$cfg->{mindays}&mincount=$cfg->{mincount}") ) {
@@ -43,7 +43,7 @@ if ($cfg->{use_remote}) {
 	   push(@{$work->{remoteIPs}}, $1);
 	}
     } else {
-	syslog('notice', "Can't download IP blacklist from project site") if $cfg->{debug};
+	syslog('notice', "Unable to download IP blacklist from the project site") if $cfg->{debug};
     }
 
     # get IPs that we don't have in local pf table
@@ -67,7 +67,7 @@ if ($cfg->{use_remote}) {
 		syslog('notice', "Couldn't add $work->{pool} to firewall");
 	}
     }
-    syslog('notice', 'blacklist synchronized with project site') if $cfg->{debug};
+    syslog('notice', 'blacklist synchronized with the project site') if $cfg->{debug};
 }
 
 my %count = ();	# hash used to store total number of failed tries
@@ -78,11 +78,13 @@ my $res   = Net::DNS::Resolver->new;
 
 while (<>) {
     if (/.*Failed password.*from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn}) port.*/i ||
+	/.*Failed keyboard.*from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn}) port.*/i ||
 	/.*Invalid user.*from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn})$/i ||
 	/.*Did not receive identification string from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn})$/i ||
 	/.*Bad protocol version identification .* from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn})$/i ||
 	/.*User.*from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn}) not allowed because.*/i ||
 	/.*error: maximum authentication attempts exceeded for.*from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn}).*/i ||
+	/.*error: PAM: authentication error for.*from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn}).*/i ||
 	/.*fatal: Unable to negotiate with ($work->{ipv4}|$work->{ipv6}|$work->{fqdn}).*/i) {
 
 	my $IP = $1;
@@ -124,8 +126,11 @@ sub download {
 sub block {
     my ($IP) = shift or die "Need IP!\n";
 
+    my $query = $res->search($IP, "PTR");
+    my $RDNS = $query ? ($query->answer)[0]->ptrdname : "not resolved";
+
     if ($timea{$IP} && ($timea{$IP} < time - $cfg->{timeout})) {
-	syslog('notice', "resetting $IP count, since it wasn't active for more than $cfg->{timeout} seconds") if $cfg->{debug};
+	syslog('notice', "resetting $IP ($RDNS) count, since it wasn't active for more than $cfg->{timeout} seconds") if $cfg->{debug};
 	delete $count{$IP};
     }
     $timea{$IP} = time;
@@ -134,11 +139,11 @@ sub block {
     $count{$IP}++;
 
     if ($cfg->{debug} && ($count{$IP} < $cfg->{max_attempts}+1)) {
-	syslog('notice', "$IP was logged with total count of $count{$IP} failed attempts");
+	syslog('notice', "$IP ($RDNS) was logged with total count of $count{$IP} failed attempts");
     }
 
     if ($count{$IP} == $cfg->{max_attempts}+1) {
-	syslog('notice', "IP $IP reached maximum number of failed attempts!") if $cfg->{debug};
+	syslog('notice', "IP $IP ($RDNS) reached maximum number of failed attempts!") if $cfg->{debug};
 	if (!grep { /$IP/ } @{$cfg->{whitelist}}) {
 	    $work->{pool}  = $IP . '/32'  if ($IP =~ /\./); # block whole ipv4 pool
 	    $work->{pool}  = $IP . '/128' if ($IP =~ /\:/); # block while ipv6 pool
@@ -149,14 +154,14 @@ sub block {
 		syslog('notice', "Couldn't add $cfg->{pool} to firewall");
 	    system("$cfg->{pfctl} -k $IP") == 0 ||
 		syslog('notice', "Couldn't kill all states for $IP");
-	    system("echo '$work->{pool}\t\t# $work->{timea}' >> $cfg->{tablefile}") == 0 ||
+	    system("echo '$work->{pool}\t\t# $work->{timea} ($RDNS)' >> $cfg->{tablefile}") == 0 ||
 		syslog('notice', "Could't write $work->{pool} to $cfg->{table}'s table file");
 
 	    # send mail if it is configured
 	    if ($cfg->{email} && $cfg->{email} ne '') {
 		syslog('notice', "sending email to $cfg->{email}") if $cfg->{debug};
-		open(MAIL, "| $cfg->{mail} -s '$work->{hostname}: BruteForceBlocker blocking $work->{pool}' $cfg->{email}");
-		print (MAIL "BruteForceBlocker blocking $work->{pool} in pf table $cfg->{table}\n");
+		open(MAIL, "| $cfg->{mail} -s '$work->{hostname}: BruteForceBlocker blocking $work->{pool} ($RDNS)' $cfg->{email}");
+		print (MAIL "BruteForceBlocker blocking $work->{pool} ($RDNS) in pf table $cfg->{table}\n");
 		close(MAIL);
 	    }
 	    ;
