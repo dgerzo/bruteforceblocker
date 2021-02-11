@@ -133,9 +133,7 @@ sub download {
 
 sub block {
     my ($IP) = shift or die "Need IP!\n";
-    my $query;
-
-    $query = $res->search($IP, "PTR");
+    my $query = $res->search($IP, "PTR");
 
     while ($query && ($query->answer)[0]->type eq "CNAME") {
 	$query = $res->search(($query->answer)[0]->cname, "PTR");
