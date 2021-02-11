@@ -127,7 +127,12 @@ sub block {
     my ($IP) = shift or die "Need IP!\n";
 
     my $query = $res->search($IP, "PTR");
-    my $RDNS = $query ? ($query->answer)[0]->ptrdname : "not resolved";
+	
+	while ($query && ($query->answer)[0]->type eq "CNAME") {
+		$query = $res->search(($query->answer)[0]->cname, "PTR");
+	}
+	
+    my $RDNS = ($query && ($query->answer)[0]->type eq "PTR") ? ($query->answer)[0]->ptrdname : "not resolved";
 
     if ($timea{$IP} && ($timea{$IP} < time - $cfg->{timeout})) {
 	syslog('notice', "resetting $IP ($RDNS) count, since it wasn't active for more than $cfg->{timeout} seconds") if $cfg->{debug};
