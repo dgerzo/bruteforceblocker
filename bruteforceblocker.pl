@@ -141,6 +141,12 @@ sub block {
 	$query = $res->search(($query->answer)[0]->cname, "PTR");
     }
 
+    my $query = $res->search($IP, "PTR");
+
+    while ($query && ($query->answer)[0]->type eq "CNAME") {
+	$query = $res->search(($query->answer)[0]->cname, "PTR");
+    }
+
     my $RDNS = ($query && ($query->answer)[0]->type eq "PTR") ? ($query->answer)[0]->ptrdname : "not resolved";
 
     if ($timea{$IP} && ($timea{$IP} < time - $cfg->{timeout})) {
