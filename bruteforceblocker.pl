@@ -77,17 +77,25 @@ my $res   = Net::DNS::Resolver->new;
 # the core process
 
 while (<>) {
-    if (/.*Failed password.*from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn}) port.*/i ||
-	/.*Failed keyboard.*from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn}) port.*/i ||
-	/.*Invalid user.*from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn})$/i ||
-	/.*Did not receive identification string from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn})$/i ||
-	/.*Bad protocol version identification .* from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn})$/i ||
-	/.*User.*from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn}) not allowed because.*/i ||
-	/.*error: maximum authentication attempts exceeded for.*from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn}).*/i ||
-	/.*error: PAM: authentication error for.*from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn}).*/i ||
-	/.*fatal: Unable to negotiate with ($work->{ipv4}|$work->{ipv6}|$work->{fqdn}).*/i) {
+    if (/Failed password.*from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn}) port/i ||
+	/Failed keyboard.*from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn}) port/i ||
+	/Invalid user.*from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn})$/i ||
+	/Invalid user.*from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn}) port/i ||
+	/Did not receive identification string from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn})$/i ||
+	/Bad protocol version identification .* from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn})$/i ||
+	/User.*from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn}) not allowed because.*/i ||
+	/error: maximum authentication attempts exceeded for.*from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn}).*/i ||
+	/FTP LOGIN FAILED FROM ($work->{ipv4}|$work->{ipv6}|$work->{fqdn}),/i ||
+	/error: PAM: authentication error for.*from ($work->{ipv4}|$work->{ipv6}|$work->{fqdn})/i ||
+	/fatal: Unable to negotiate with ($work->{ipv4}|$work->{ipv6}|$work->{fqdn})/i ||
+	/ruleset=check_relay,.*arg2=($work->{ipv4}|$work->{ipv6}).*Connection rate limit exceeded/i ||
+	/: [[]?($work->{ipv4}|$work->{ipv6}|$work->{fqdn})[]]? did not issue MAIL.EXPN.VRFY.ETRN during connection to /i ||
+	/AUTH failure.*authentication failure.*:.* relay=.*[[]($work->{ipv4}|$work->{ipv6})[]]/i ||
+	/: .* [[]($work->{ipv4}|$work->{ipv6})[]]: REJECT:.*InstaBLOCK.*$/ ||
+        0 ) {
 
 	my $IP = $1;
+
 	if ($IP =~ /$work->{fqdn}/i) {
 	    foreach my $type (qw(AAAA A)) {
 		my $query = $res->search($IP, $type);
@@ -125,13 +133,18 @@ sub download {
 
 sub block {
     my ($IP) = shift or die "Need IP!\n";
+    my $query = $res->search($IP, "PTR");
+
+    while ($query && ($query->answer)[0]->type eq "CNAME") {
+	$query = $res->search(($query->answer)[0]->cname, "PTR");
+    }
 
     my $query = $res->search($IP, "PTR");
-	
-	while ($query && ($query->answer)[0]->type eq "CNAME") {
-		$query = $res->search(($query->answer)[0]->cname, "PTR");
-	}
-	
+
+    while ($query && ($query->answer)[0]->type eq "CNAME") {
+	$query = $res->search(($query->answer)[0]->cname, "PTR");
+    }
+
     my $RDNS = ($query && ($query->answer)[0]->type eq "PTR") ? ($query->answer)[0]->ptrdname : "not resolved";
 
     if ($timea{$IP} && ($timea{$IP} < time - $cfg->{timeout})) {
